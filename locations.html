@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saved coordinates</title>
+  </head>
+  <body>
+    <pre id="out">loading…</pre>
+    <script>
+      var REMOTE =
+        "https://crudcrud.com/api/b7617c51e90f44d3a676d7c130ecbfb9/locations";
+
+      function keyOf(row) {
+        return [row.lat, row.lng, row.time || "", row.local_time || ""].join("|");
+      }
+
+      function clean(row) {
+        return {
+          lat: row.lat,
+          lng: row.lng,
+          time: row.time,
+          local_time: row.local_time,
+          accuracy: row.accuracy,
+        };
+      }
+
+      Promise.all([
+        fetch("locations.json", { cache: "no-store" })
+          .then(function (r) {
+            return r.ok ? r.json() : [];
+          })
+          .catch(function () {
+            return [];
+          }),
+        fetch(REMOTE)
+          .then(function (r) {
+            return r.ok ? r.json() : [];
+          })
+          .catch(function () {
+            return [];
+          }),
+      ]).then(function (parts) {
+        var seen = {};
+        var rows = [];
+        parts.forEach(function (list) {
+          (list || []).forEach(function (row) {
+            if (row.lat == null || row.lng == null) return;
+            var key = keyOf(row);
+            if (seen[key]) return;
+            seen[key] = true;
+            rows.push(clean(row));
+          });
+        });
+        rows.sort(function (a, b) {
+          return String(a.time || "").localeCompare(String(b.time || ""));
+        });
+        document.getElementById("out").textContent = JSON.stringify(rows, null, 2);
+      });
+    </script>
+  </body>
+</html>
