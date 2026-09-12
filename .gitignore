@@ -1,0 +1,6 @@
+locations.jsonl
+__pycache__/
+.DS_Store
+.netlify/
+public/
+
