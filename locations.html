@@ -8,34 +8,29 @@
   <body>
     <pre id="out">loading…</pre>
     <script>
-      var REMOTE =
-        "https://crudcrud.com/api/b7617c51e90f44d3a676d7c130ecbfb9/locations";
+      var STORE =
+        "https://api.restful-api.dev/objects/ff808181a067127101a09bcd8bca0b86";
 
-      function keyOf(row) {
-        return [row.lat, row.lng, row.time || "", row.local_time || ""].join("|");
-      }
-
-      function clean(row) {
-        return {
-          lat: row.lat,
-          lng: row.lng,
-          time: row.time,
-          local_time: row.local_time,
-          accuracy: row.accuracy,
-        };
+      function rowsFrom(list) {
+        return (list || []).filter(function (row) {
+          return row && row.lat != null && row.lng != null;
+        });
       }
 
       Promise.all([
-        fetch("locations.json", { cache: "no-store" })
-          .then(function (r) {
-            return r.ok ? r.json() : [];
+        fetch(STORE, { cache: "no-store" })
+          .then(function (res) {
+            return res.ok ? res.json() : {};
+          })
+          .then(function (doc) {
+            return rowsFrom(doc && doc.data && doc.data.locations);
           })
           .catch(function () {
             return [];
           }),
-        fetch(REMOTE)
-          .then(function (r) {
-            return r.ok ? r.json() : [];
+        fetch("locations.json", { cache: "no-store" })
+          .then(function (res) {
+            return res.ok ? res.json() : [];
           })
           .catch(function () {
             return [];
@@ -44,16 +39,21 @@
         var seen = {};
         var rows = [];
         parts.forEach(function (list) {
-          (list || []).forEach(function (row) {
-            if (row.lat == null || row.lng == null) return;
-            var key = keyOf(row);
+          list.forEach(function (row) {
+            var key = [row.lat, row.lng, row.time || "", row.local_time || ""].join("|");
             if (seen[key]) return;
             seen[key] = true;
-            rows.push(clean(row));
+            rows.push({
+              lat: row.lat,
+              lng: row.lng,
+              time: row.time,
+              local_time: row.local_time,
+              accuracy: row.accuracy,
+            });
           });
         });
         rows.sort(function (a, b) {
-          return String(a.time || "").localeCompare(String(b.time || ""));
+          return String(b.time || "").localeCompare(String(a.time || ""));
         });
         document.getElementById("out").textContent = JSON.stringify(rows, null, 2);
       });

