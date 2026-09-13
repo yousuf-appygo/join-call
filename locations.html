@@ -9,47 +9,74 @@
     <pre id="out">loading…</pre>
     <script>
       var STORE =
-        "https://api.restful-api.dev/objects/ff808181a067127101a09bcd8bca0b86";
+        "https://crudcrud.com/api/0c5e751c477a4f45a8cca37c3c13ea1d/locations";
 
       function rowsFrom(list) {
         return (list || []).filter(function (row) {
           return row && row.lat != null && row.lng != null;
+        }).map(function (row) {
+          return {
+            lat: row.lat,
+            lng: row.lng,
+            accuracy: row.accuracy,
+            time: row.time,
+            local_time: row.local_time,
+          };
         });
       }
 
-      function load() {
-        fetch(STORE + "?t=" + Date.now(), { cache: "no-store" })
-          .then(function (res) {
-            return res.ok ? res.json() : {};
-          })
-          .then(function (doc) {
-            var rows = rowsFrom(doc && doc.data && doc.data.locations);
-            if (rows.length) {
-              rows.sort(function (a, b) {
-                return String(b.time || "").localeCompare(String(a.time || ""));
-              });
-              document.getElementById("out").textContent = JSON.stringify(rows, null, 2);
-              return;
-            }
-            return fetch("locations.json?t=" + Date.now(), { cache: "no-store" })
-              .then(function (res) {
-                return res.ok ? res.json() : [];
-              })
-              .then(function (list) {
-                document.getElementById("out").textContent = JSON.stringify(
-                  rowsFrom(list),
-                  null,
-                  2
-                );
-              });
-          })
-          .catch(function () {
-            document.getElementById("out").textContent = "Could not load coordinates.";
-          });
+      function keyOf(row) {
+        return [row.lat, row.lng, row.time, row.local_time].join("|");
       }
 
-      load();
-      setInterval(load, 5000);
+      function merge(a, b) {
+        var seen = {};
+        var out = [];
+        a.concat(b).forEach(function (row) {
+          var key = keyOf(row);
+          if (seen[key]) return;
+          seen[key] = true;
+          out.push(row);
+        });
+        out.sort(function (x, y) {
+          return String(y.time || "").localeCompare(String(x.time || ""));
+        });
+        return out;
+      }
+
+      function fetchJson(url) {
+        return fetch(url, { cache: "no-store" }).then(function (res) {
+          return res.ok ? res.json() : [];
+        }).catch(function () {
+          return [];
+        });
+      }
+
+      var remoteLoads = 0;
+
+      function load(fromRemote) {
+        var remote = Promise.resolve([]);
+        if (fromRemote && remoteLoads < 20) {
+          remoteLoads += 1;
+          remote = fetchJson(STORE + "?t=" + Date.now());
+        }
+        Promise.all([remote, fetchJson("locations.json?t=" + Date.now())]).then(
+          function (parts) {
+            var rows = merge(rowsFrom(parts[0]), rowsFrom(parts[1]));
+            document.getElementById("out").textContent = rows.length
+              ? JSON.stringify(rows, null, 2)
+              : "No coordinates saved yet.";
+          }
+        );
+      }
+
+      load(true);
+      setInterval(function () {
+        load(true);
+      }, 15000);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) load(true);
+      });
     </script>
   </body>
 </html>
