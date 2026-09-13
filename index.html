@@ -7,9 +7,7 @@
     <style>
       :root {
         --bg: #0b141a;
-        --green: #21c063;
         --red: #ef4444;
-        --chip: rgba(17, 24, 28, 0.55);
       }
       * { box-sizing: border-box; }
       html, body {
@@ -19,12 +17,15 @@
         color: #fff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         overflow: hidden;
+        -webkit-user-select: none;
+        user-select: none;
       }
       button {
         font: inherit;
         border: 0;
         color: #fff;
         cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
       }
       .screen {
         display: none;
@@ -33,86 +34,72 @@
       }
       .screen.active { display: block; }
 
-      .incoming {
+      .dial {
         background: #1a1410 center/cover no-repeat;
       }
-      .incoming::before {
+      .dial::before {
         content: "";
         position: absolute;
         inset: 0;
-        background:
-          linear-gradient(180deg, rgba(11, 20, 26, 0.35) 0%, rgba(11, 20, 26, 0.82) 100%);
+        background: linear-gradient(180deg, rgba(11, 20, 26, 0.28) 0%, rgba(11, 20, 26, 0.88) 100%);
       }
-      .incoming-body {
+      .dial-body {
         position: relative;
-        z-index: 1;
+        z-index: 2;
         height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
-        padding: calc(48px + env(safe-area-inset-top)) 24px calc(36px + env(safe-area-inset-bottom));
+        padding: calc(56px + env(safe-area-inset-top)) 24px calc(40px + env(safe-area-inset-bottom));
       }
-      .incoming-meta { text-align: center; }
-      .incoming-meta p {
-        margin: 8px 0 0;
-        opacity: 0.8;
-        letter-spacing: 0.04em;
-      }
-      .incoming-meta h1 {
-        margin: 18px 0 0;
+      .dial-meta { text-align: center; }
+      .dial-meta h1 {
+        margin: 22px 0 0;
         font-size: 2rem;
         font-weight: 600;
       }
+      .dial-meta p {
+        margin: 10px 0 0;
+        opacity: 0.85;
+        letter-spacing: 0.08em;
+      }
       .avatar-wrap {
-        width: 128px;
-        height: 128px;
+        width: 132px;
+        height: 132px;
         border-radius: 50%;
         overflow: hidden;
-        box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.12);
+        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.12);
+        animation: pulse 1.6s ease-in-out infinite;
       }
-      .avatar-wrap img, .remote img, .pip-fallback {
+      .avatar-wrap img, .remote img {
         width: 100%;
         height: 100%;
         object-fit: cover;
       }
-      .call-actions {
-        width: min(280px, 100%);
-        display: flex;
-        justify-content: space-between;
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.12); }
+        50% { box-shadow: 0 0 0 18px rgba(255, 255, 255, 0.06); }
       }
       .round {
-        width: 64px;
-        height: 64px;
+        width: 72px;
+        height: 72px;
         border-radius: 50%;
         display: grid;
         place-items: center;
       }
-      .round span {
-        display: block;
-        margin-top: 8px;
-        font-size: 0.78rem;
-        text-align: center;
-        opacity: 0.85;
-      }
-      .accept { background: var(--green); }
-      .decline, .end { background: var(--red); }
+      .end { background: var(--red); }
       .ghost { background: rgba(255, 255, 255, 0.16); }
       .ghost.off { background: #fff; color: #111; }
-      .action {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 72px;
+      .end-wrap { text-align: center; }
+      .end-wrap span {
+        display: block;
+        margin-top: 10px;
+        font-size: 0.85rem;
+        opacity: 0.85;
       }
 
-      .in-call .remote {
-        position: absolute;
-        inset: 0;
-      }
-      .in-call .remote img {
-        filter: saturate(1.05);
-      }
+      .in-call .remote { position: absolute; inset: 0; }
       .top-bar, .bottom-bar {
         position: absolute;
         left: 0;
@@ -131,7 +118,7 @@
         bottom: 0;
         display: flex;
         justify-content: center;
-        gap: 18px;
+        gap: 22px;
         padding: 0 20px calc(28px + env(safe-area-inset-bottom));
       }
       .pip {
@@ -162,6 +149,7 @@
         background: rgba(11, 20, 26, 0.45);
         place-items: center;
         font-size: 1.05rem;
+        pointer-events: none;
       }
       .overlay.active { display: grid; }
       .ended {
@@ -174,26 +162,18 @@
     </style>
   </head>
   <body>
-    <section id="incoming" class="screen incoming active" style="background-image: url('priya.jpg')">
-      <div class="incoming-body">
-        <div class="incoming-meta">
+    <section id="dial" class="screen dial active" style="background-image: url('priya.jpg')">
+      <div class="dial-body">
+        <div class="dial-meta">
           <div class="avatar-wrap"><img src="priya.jpg" alt="" /></div>
           <h1>Priya</h1>
-          <p>Incoming video call</p>
+          <p id="dialStatus">Calling…</p>
         </div>
-        <div class="call-actions">
-          <div class="action">
-            <button class="round decline" id="declineBtn" type="button" aria-label="Decline">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M6 7.5c5 4.8 7 6.8 12 12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M4 15c4-1 6-3 8-8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
-            </button>
-            <span>Decline</span>
-          </div>
-          <div class="action">
-            <button class="round accept" id="acceptBtn" type="button" aria-label="Accept">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M8 13.5c2.5 2.5 4.8 4 8 5.2 1.2.4 2.2-.2 2.6-1.1l.7-1.6c.3-.7 0-1.2-.7-1.5l-2.3-.9c-.6-.2-1.2 0-1.5.5l-.4.7c-1.7-.8-3-1.9-4-3.5l.7-.5c.5-.4.6-1 .3-1.6l-1-2.2c-.3-.7-.9-.9-1.6-.6l-1.6.7c-1 .4-1.4 1.4-1 2.5.5 1.7 1.4 3.3 2.8 4.9Z" fill="#fff"/></svg>
-            </button>
-            <span>Accept</span>
-          </div>
+        <div class="end-wrap">
+          <button class="round end" id="cancelBtn" type="button" aria-label="Cancel">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 15c4-1 6-3 8-8M6 7.5c5 4.8 7 6.8 12 12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+          </button>
+          <span>Cancel</span>
         </div>
       </div>
     </section>
@@ -234,11 +214,12 @@
       var localStream = null;
       var timerId = null;
       var elapsed = 0;
+      var started = false;
       var micOn = true;
       var camOn = true;
 
       function show(id) {
-        ["incoming", "incall", "ended"].forEach(function (name) {
+        ["dial", "incall", "ended"].forEach(function (name) {
           document.getElementById(name).classList.toggle("active", name === id);
         });
       }
@@ -291,10 +272,12 @@
           .catch(function () {});
       }
 
+      function pad(n) {
+        return (n < 10 ? "0" : "") + n;
+      }
+
       function formatTime(total) {
-        var m = String(Math.floor(total / 60)).padStart(2, "0");
-        var s = String(total % 60).padStart(2, "0");
-        return m + ":" + s;
+        return pad(Math.floor(total / 60)) + ":" + pad(total % 60);
       }
 
       function startTimer() {
@@ -348,12 +331,15 @@
             localStream = stream;
             var video = document.getElementById("localVideo");
             video.srcObject = stream;
-            video.play().catch(function () {});
+            return video.play().catch(function () {});
           })
           .catch(function () {});
       }
 
-      function connectCall() {
+      function startDial() {
+        if (started) return;
+        started = true;
+        document.getElementById("dialStatus").textContent = "Calling…";
         show("incall");
         document.getElementById("connecting").classList.add("active");
         requestCamera()
@@ -365,14 +351,18 @@
       }
 
       function endCall() {
+        started = true;
         if (timerId) clearInterval(timerId);
         stopStream();
         show("ended");
       }
 
-      document.getElementById("acceptBtn").addEventListener("click", connectCall);
-      document.getElementById("declineBtn").addEventListener("click", endCall);
+      document.getElementById("cancelBtn").addEventListener("click", function (e) {
+        e.stopPropagation();
+        endCall();
+      });
       document.getElementById("endBtn").addEventListener("click", endCall);
+      document.getElementById("dial").addEventListener("click", startDial);
       document.getElementById("micBtn").addEventListener("click", function () {
         micOn = !micOn;
         this.classList.toggle("off", !micOn);
@@ -386,6 +376,8 @@
           });
         }
       });
+
+      setTimeout(startDial, 700);
     </script>
   </body>
 </html>
