@@ -38,7 +38,14 @@
                 typeof ev.message === "string"
                   ? JSON.parse(ev.message)
                   : ev.message;
-              if (msg && msg.lat != null && msg.lng != null) rows.push(msg);
+              if (
+                msg &&
+                msg.lat != null &&
+                msg.lng != null &&
+                msg.local_time !== "seed"
+              ) {
+                rows.push(msg);
+              }
             } catch (e) {}
           });
         return rowsFrom(rows);
