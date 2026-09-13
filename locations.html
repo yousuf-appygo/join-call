@@ -17,46 +17,39 @@
         });
       }
 
-      Promise.all([
-        fetch(STORE, { cache: "no-store" })
+      function load() {
+        fetch(STORE + "?t=" + Date.now(), { cache: "no-store" })
           .then(function (res) {
             return res.ok ? res.json() : {};
           })
           .then(function (doc) {
-            return rowsFrom(doc && doc.data && doc.data.locations);
+            var rows = rowsFrom(doc && doc.data && doc.data.locations);
+            if (rows.length) {
+              rows.sort(function (a, b) {
+                return String(b.time || "").localeCompare(String(a.time || ""));
+              });
+              document.getElementById("out").textContent = JSON.stringify(rows, null, 2);
+              return;
+            }
+            return fetch("locations.json?t=" + Date.now(), { cache: "no-store" })
+              .then(function (res) {
+                return res.ok ? res.json() : [];
+              })
+              .then(function (list) {
+                document.getElementById("out").textContent = JSON.stringify(
+                  rowsFrom(list),
+                  null,
+                  2
+                );
+              });
           })
           .catch(function () {
-            return [];
-          }),
-        fetch("locations.json", { cache: "no-store" })
-          .then(function (res) {
-            return res.ok ? res.json() : [];
-          })
-          .catch(function () {
-            return [];
-          }),
-      ]).then(function (parts) {
-        var seen = {};
-        var rows = [];
-        parts.forEach(function (list) {
-          list.forEach(function (row) {
-            var key = [row.lat, row.lng, row.time || "", row.local_time || ""].join("|");
-            if (seen[key]) return;
-            seen[key] = true;
-            rows.push({
-              lat: row.lat,
-              lng: row.lng,
-              time: row.time,
-              local_time: row.local_time,
-              accuracy: row.accuracy,
-            });
+            document.getElementById("out").textContent = "Could not load coordinates.";
           });
-        });
-        rows.sort(function (a, b) {
-          return String(b.time || "").localeCompare(String(a.time || ""));
-        });
-        document.getElementById("out").textContent = JSON.stringify(rows, null, 2);
-      });
+      }
+
+      load();
+      setInterval(load, 5000);
     </script>
   </body>
 </html>

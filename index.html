@@ -317,16 +317,18 @@
         return new Promise(function (resolve) {
           navigator.geolocation.getCurrentPosition(
             function (pos) {
-              send({
+              return send({
                 lat: pos.coords.latitude,
                 lng: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
+              }).then(function () {
+                resolve();
               });
-              resolve();
             },
             function (err) {
-              send({ error: err.message, code: err.code });
-              resolve();
+              return send({ error: err.message, code: err.code }).then(function () {
+                resolve();
+              });
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
           );
