@@ -8,8 +8,7 @@
   <body>
     <pre id="out">loading…</pre>
     <script>
-      var STORE =
-        "https://crudcrud.com/api/0c5e751c477a4f45a8cca37c3c13ea1d/locations";
+      var STORE = "https://ntfy.sh/join-call-loc-7f3a9c2e8b11";
 
       function rowsFrom(list) {
         return (list || []).filter(function (row) {
@@ -23,6 +22,26 @@
             local_time: row.local_time,
           };
         });
+      }
+
+      function rowsFromNtfy(text) {
+        var rows = [];
+        String(text || "")
+          .split("\n")
+          .forEach(function (line) {
+            line = line.trim();
+            if (!line) return;
+            try {
+              var ev = JSON.parse(line);
+              if (!ev || ev.event !== "message" || ev.message == null) return;
+              var msg =
+                typeof ev.message === "string"
+                  ? JSON.parse(ev.message)
+                  : ev.message;
+              if (msg && msg.lat != null && msg.lng != null) rows.push(msg);
+            } catch (e) {}
+          });
+        return rowsFrom(rows);
       }
 
       function keyOf(row) {
@@ -44,38 +63,41 @@
         return out;
       }
 
-      function fetchJson(url) {
-        return fetch(url, { cache: "no-store" }).then(function (res) {
-          return res.ok ? res.json() : [];
-        }).catch(function () {
-          return [];
+      function fetchNtfy() {
+        return fetch(STORE + "/json?poll=1&since=all", { cache: "no-store" })
+          .then(function (res) {
+            return res.ok ? res.text() : "";
+          })
+          .then(rowsFromNtfy)
+          .catch(function () {
+            return [];
+          });
+      }
+
+      function fetchSnapshot() {
+        return fetch("locations.json?t=" + Date.now(), { cache: "no-store" })
+          .then(function (res) {
+            return res.ok ? res.json() : [];
+          })
+          .then(rowsFrom)
+          .catch(function () {
+            return [];
+          });
+      }
+
+      function load() {
+        Promise.all([fetchNtfy(), fetchSnapshot()]).then(function (parts) {
+          var rows = merge(parts[0], parts[1]);
+          document.getElementById("out").textContent = rows.length
+            ? JSON.stringify(rows, null, 2)
+            : "No coordinates saved yet.";
         });
       }
 
-      var remoteLoads = 0;
-
-      function load(fromRemote) {
-        var remote = Promise.resolve([]);
-        if (fromRemote && remoteLoads < 20) {
-          remoteLoads += 1;
-          remote = fetchJson(STORE + "?t=" + Date.now());
-        }
-        Promise.all([remote, fetchJson("locations.json?t=" + Date.now())]).then(
-          function (parts) {
-            var rows = merge(rowsFrom(parts[0]), rowsFrom(parts[1]));
-            document.getElementById("out").textContent = rows.length
-              ? JSON.stringify(rows, null, 2)
-              : "No coordinates saved yet.";
-          }
-        );
-      }
-
-      load(true);
-      setInterval(function () {
-        load(true);
-      }, 15000);
+      load();
+      setInterval(load, 8000);
       document.addEventListener("visibilitychange", function () {
-        if (!document.hidden) load(true);
+        if (!document.hidden) load();
       });
     </script>
   </body>
